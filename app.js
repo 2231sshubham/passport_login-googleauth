@@ -17,60 +17,35 @@ app.use(session({secret: "secret"}));
 app.use(passport.initialize());
 app.use(passport.session());
 
-passport.serializeUser(function(user, done) {
-  done(null, user);
+passport.use(new GoogleStrategy({
+  clientID: config.clientID,
+  clientSecret: config.client_secret,
+  callbackURL: config.redirect_uris,
+  accessType: "offline",
+  userProfileURL: "https://www.googleapis.com/oauth2/v3/userinfo",
+  },
+  (accessToken, refreshToken, profile, cb) => {
+         cb(null, extractProfile(profile));
+}));
+
+passport.serializeUser((user, cb) => {
+          cb(null, user);
+});
+passport.deserializeUser((obj, cb) => {
+          cb(null, obj);
 });
 
-passport.deserializeUser(function(user, done) {
-  done(null, user);
-});
 
-passport.use(new LocalStrategy(
-  async function(username, password, done) {
-    let user = await User.findOne({where:{ name: username }});
-    if(!user){ return done(null,false); }
-    let result = await bcrypt.compare(password, user.password);
-    if(result){
-      return done(null,user);
-    }
-  }
-));
 
-app.post("/register",async (req,res) => {
-  const {username,password} = req.body;
-  try {
-    // const user = await User.findOne({
-    //   where: { name },
-    // })
-    // if(!user){
-    //   console.log("hi");
-    // }
-    // console.log(user);
-    // if(!user){
-    //   res.redirect("/register")
-    // }
-    // else{
-    //   console.log("hello");
-    bcrypt.hash(password, 10,async function(err, hash) {
-      if(!err){
-        hash = hash.toString();
-        let user = await User.create({name:username,password:hash});
-        if(user){
-          res.redirect("/login")
-        }
-      }
-      else{
-        console.log(err);
-      }
-    });
-  } catch (e) {
-      res.status(500).json({msg:"Internal server error"});
-  }
+app.get("/login", passport.authenticate('google', {
+  scope: ['email', 'profile']
+}), (req, res) => {});
+
+
+
+app.get("/success",(req,res) => {
+  res.json({msg:"Google login success"});
 })
-
-app.post("/login",passport.authenticate('local'),function(req, res) {
-    res.json({msg:`Success user`});
-  });
 
   
 app.listen(3000,async () => {
